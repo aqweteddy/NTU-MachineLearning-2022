@@ -27,6 +27,6 @@ sh run_test_aug_cv.sh ckpt/effnet-b5-cv5/
 ### voting
 
 ```sh
-run_voting_cv.sh ckpt/effnet-b5-cv5
+sh run_voting_cv.sh ckpt/effnet-b5-cv5
 ```
 * result: `voting.csv`
