@@ -3,6 +3,7 @@
 ## code
 
 * Adapt code from NTU ML example.
+* Use `wandb` to visualize the experiemtal result.
 
 ## passed baseline
 

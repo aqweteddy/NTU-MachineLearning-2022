@@ -4,3 +4,4 @@ numpy
 tqdm
 matplotlib
 torchvision
+wandb
