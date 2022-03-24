@@ -1,8 +1,7 @@
+import csv, os, gc
 import json
 import random
 from pathlib import Path
-import csv
-
 import numpy as np
 import pytorch_lightning as pl
 import torch
@@ -15,10 +14,9 @@ from tqdm import tqdm
 
 import wandb
 from dataset import (InferenceDataset, TrainDataset, get_dataloader,
-                     inference_collate_batch)
+                     get_dataloader_cv, inference_collate_batch)
 from model import Classifier
 from utils import get_cosine_schedule_with_warmup
-
 
 class Model(pl.LightningModule):
 
@@ -50,7 +48,7 @@ class Model(pl.LightningModule):
         elif self.args.optimizer == 'adamw':
             optimizer = torch.optim.AdamW(self.model.parameters(),
                                           lr=self.args.lr,
-                                          weight_decay=1e-3)
+                                          weight_decay=self.args.weight_decay)
 
         else:
             raise NotImplementedError
@@ -88,17 +86,50 @@ class Model(pl.LightningModule):
         self.log('val/acc', acc.item(), prog_bar=True)
 
 
+def run_train_cv(args):
+    cv = 0
+       
+    base_exp_name =  args.exp_name
+    for train_loader, valid_loader, speaker_num in get_dataloader_cv(
+            args.data_dir, args.batch_size, 5, args.segment_len, args.cv):
+        cv += 1
+        args.speaker_num = speaker_num
+        args.exp_name = f'{base_exp_name}_cv-{cv}'
+        args.num_train_steps = len(train_loader)
+        args.warmup_steps = len(train_loader) * args.warmup_epoch
+        checkpoint_callback = ModelCheckpoint(
+            monitor="val/acc",
+            mode='max',
+            filename='{epoch}-{other_metric:.2f}' + f'-cv{cv}')
+        earlystop = EarlyStopping('val/acc', patience=10, mode='max')
+        logger = WandbLogger(project='ml_hw4', name=args.exp_name)
+        trainer = pl.Trainer(gpus=1,
+                             logger=logger,
+                             enable_model_summary=None,
+                             reload_dataloaders_every_n_epochs=1,
+                             max_epochs=args.max_epochs,
+                             callbacks=[
+                                 checkpoint_callback, earlystop,
+                                 LearningRateMonitor('step')
+                             ])
+        model = Model(args)
+        trainer.fit(model, train_loader, valid_loader)
+        logger.experiment.finish()
+        del model, trainer
+        gc.collect()
+        
+
+
 def run_train(args):
     train_loader, valid_loader, speaker_num = get_dataloader(
-        args.data_dir, args.batch_size, 10)
+        args.data_dir, args.batch_size, 10, args.segment_len)
     args.speaker_num = speaker_num
     args.num_train_steps = len(train_loader)
     args.warmup_steps = len(train_loader) * args.warmup_epoch
 
-    print(args)
     checkpoint_callback = ModelCheckpoint(monitor="val/acc", mode='max')
     earlystop = EarlyStopping('val/acc', patience=20, mode='max')
-    logger = WandbLogger(project='ML_HW4', name=args.exp_name)
+    logger = WandbLogger(project='ml_hw4', name=args.exp_name)
     trainer = pl.Trainer(gpus=1,
                          logger=logger,
                          enable_model_summary=None,
@@ -110,6 +141,7 @@ def run_train(args):
                          ])
     model = Model(args)
     trainer.fit(model, train_loader, valid_loader)
+    logger.experiment.finish()
     return checkpoint_callback.best_model_path, model
 
 
@@ -125,11 +157,11 @@ def set_seed(seed):
 
 
 @torch.no_grad()
-def run_test(ckpt, data_dir, output_path, device='cuda'):
+def run_test(ckpt, segment_len, data_dir, output_path, device='cuda'):
 
     model = Model.load_from_checkpoint(ckpt).to(device)
     model.eval()
-    dataset = InferenceDataset(data_dir)
+    dataset = InferenceDataset(data_dir, segment_len)
     dataloader = DataLoader(
         dataset,
         batch_size=1,
@@ -150,6 +182,7 @@ def run_test(ckpt, data_dir, output_path, device='cuda'):
             preds = outs.argmax(1).cpu().numpy()
             for feat_path, pred in zip(feat_paths, preds):
                 results.append([feat_path, mapping["id2speaker"][str(pred)]])
+    
     with open(output_path, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerows(results)
@@ -157,11 +190,13 @@ def run_test(ckpt, data_dir, output_path, device='cuda'):
 
 if __name__ == '__main__':
     from argparse import ArgumentParser
-    set_seed(7777)
+    set_seed(1235)
 
     parser = ArgumentParser()
     parser.add_argument('--exp_name', default='default')
     parser.add_argument('--data_dir', default='Dataset/')
+    parser.add_argument('--segment_len', default=256, type=int)
+    
     parser.add_argument('--model_type', default='conformer')
     parser.add_argument('--pooling', default='attn')
     parser.add_argument('--d_model', type=int, default=80)
@@ -169,23 +204,31 @@ if __name__ == '__main__':
     parser.add_argument('--conv_kernel_size', type=int, default=32)
     parser.add_argument('--num_layers', type=int, default=2)
     parser.add_argument('--batch_size', type=int, default=64)
-    parser.add_argument('--max_epochs', type=int, default=300)
+    parser.add_argument('--max_epochs', type=int, default=150)
     parser.add_argument('--nhead', type=int, default=4)
-    parser.add_argument('--dropout', type=float, default=0.2)
-    parser.add_argument('--label_smoothing', type=float, default=0.)
+    parser.add_argument('--dropout', type=float, default=0.3)
+    parser.add_argument('--label_smoothing', type=float, default=0.1)
     parser.add_argument('--optimizer', default='adamw')
     parser.add_argument('--lr', type=float, default=1e-3)
+    parser.add_argument('--weight_decay', type=float, default=1e-2)
     parser.add_argument('--scheduler', default='warmup_cosine')
-    parser.add_argument('--warmup_epoch', default=2, type=int)
+    parser.add_argument('--warmup_epoch', default=1, type=int)
     parser.add_argument('--run_test', action='store_true')
     parser.add_argument('--test_output', default='submit.csv')
-
+    parser.add_argument('--cv', default=0, type=int)
+    os.environ['CUDA_LAUNCH_BLOCKING']='1'
     args = parser.parse_args()
-    print(args)
-    best_ckpt = run_train(args)
-    print(f'best_ckpt_path', best_ckpt)
-    if args.run_test:
-        run_test(best_ckpt, args.data_dir, args.test_output)
+    if args.exp_name == 'default':
+        args.exp_name = f'conv_size_{args.conv_kernel_size}-d_model_{args.d_model}-encoder_dim_{args.encoder_dim}-lr_{args.lr}-nhead_{args.nhead}-n_layers_{args.num_layers}'
+
+    if args.cv < 2:
+        print(args)
+        best_ckpt = run_train(args)
+        print(f'best_ckpt_path', best_ckpt)
+        if args.run_test:
+            run_test(best_ckpt, args.data_dir, args.test_output)
+    else:
+        run_train_cv(args)
 
     # if args.run_test:
     #     model =

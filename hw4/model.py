@@ -67,10 +67,10 @@ class Classifier(nn.Module):
     """
         out = self.prenet(mels)
         if self.encoder_type == 'conformer':
-            out, _ = self.encoder(out, mels.shape[1])
+            out, _ = self.encoder(out,torch.tensor([mels.shape[1]] * mels.shape[0]).to(out.device))
         elif self.encoder_type == 'transformer':
             out = self.encoder(out)
-        
+
         stats = self.pooling(out)
         out = self.pred_layer(stats)
         return out
