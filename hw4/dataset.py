@@ -81,7 +81,7 @@ class InferenceSegDataset(Dataset):
         return feat_path, mel
 
 
-def collate_seg_batch(batch):
+def collate_batch(batch):
     # Process features within a batch.
     """Collate a batch of data."""
     mel, speaker = zip(*batch)

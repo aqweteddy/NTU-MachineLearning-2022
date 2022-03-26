@@ -3,7 +3,8 @@ import pandas as pd
 from argparse import ArgumentParser
 import torch
 from collections import Counter
-# python .\vote.py --csv .\prediction_0.834.csv .\prediction_0.829.csv .\prediction0.826.csv
+
+
 parser = ArgumentParser()
 parser.add_argument('--csv', nargs='+', type=str, help='important -> not important')
 parser.add_argument('--out', default='vote.csv')

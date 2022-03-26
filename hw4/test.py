@@ -10,11 +10,12 @@ parser.add_argument('--ckpt')
 parser.add_argument('--data_dir', default='Dataset/')
 parser.add_argument('--out', default='submit.csv')
 parser.add_argument('--mode', default='seg', help='seg or normal')
-parser.add_argument('--seglen', default=256, type=int)
+parser.add_argument('--seglen', default=128, type=int)
+parser.add_argument('--batch', default=100, type=int)
 
 args = parser.parse_args()
 
-
+@torch.no_grad()
 def run_test_seg(ckpt, seglen, datadir, out_path, device='cuda'):
     model = Model.load_from_checkpoint(ckpt).to(device)
     model.eval()
@@ -24,10 +25,10 @@ def run_test_seg(ckpt, seglen, datadir, out_path, device='cuda'):
     speaker_num = len(mapping["id2speaker"])
 
     results = [["Id", "Category"]]
-    # for feat_path, mel in tqdm(dataset):
+    # for feat_path, mel in tqdm(dataset)
     for i in tqdm(range(len(dataset))):
         mels = []
-        for j in range(10):
+        for j in range(args.batch):
             feat_path, mel = dataset[i]
             mels.append(mel)
         mels = torch.stack(mels).to(device)

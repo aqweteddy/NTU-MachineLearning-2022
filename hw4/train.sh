@@ -1,0 +1,2 @@
+# Namespace(batch_size=128, conv_size=3, cv=5, d_model=120, data_dir='Dataset/', dropout=0.1, exp_name='conv_size_3-d_model_120-ffn_dim_256-lr_0.004-nhead_8-n_layers_5_cv-5', ffn_dim=256, label_smoothing=0.1, lr=0.004, max_epochs=500, model_type='conformer', nhead=8, num_layers=5, num_train_steps=177000, optimizer='adamw', pooling='attn', run_test=False, scheduler='warmup_cosine', segment_len=128, speaker_num=600, test_output='submit.csv', warmup_epoch=2, warmup_steps=708, weight_decay=0.01)
+ython train.py --model_type conformer --optimizer adamw --pooling attn

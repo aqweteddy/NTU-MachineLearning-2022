@@ -4,6 +4,20 @@ from torch.optim import Optimizer
 from torch.optim.lr_scheduler import LambdaLR
 
 
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
+
+def get_amsoftmax_criterion(s, m):
+	def amsoftmax_criterion(wf, labels):
+		numerator = s * (torch.diagonal(wf.transpose(0, 1)[labels]) - m)
+		excl = torch.cat([torch.cat((wf[i, :y], wf[i, y+1:])).unsqueeze(0) for i, y in enumerate(labels)], dim=0)
+		denominator = torch.exp(numerator) + torch.sum(torch.exp(s * excl), dim=1)
+		L = numerator - torch.log(denominator)
+		return -torch.mean(L)
+	return amsoftmax_criterion
+
 def get_cosine_schedule_with_warmup(
 	optimizer: Optimizer,
 	num_warmup_steps: int,
@@ -32,6 +46,7 @@ def get_cosine_schedule_with_warmup(
 	Return:
 		:obj:`torch.optim.lr_scheduler.LambdaLR` with the appropriate schedule.
 	"""
+	print('num_train_step', num_training_steps, 'num_warmup_step', num_warmup_steps)
 	def lr_lambda(current_step):
 		# Warmup
 		if current_step < num_warmup_steps:
