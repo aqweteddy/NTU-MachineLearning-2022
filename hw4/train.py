@@ -227,14 +227,14 @@ if __name__ == '__main__':
 
     parser.add_argument('--amsoftmax', action='store_true', default=False)
     parser.add_argument('--am_s', type=float, default=15)
-    parser.add_argument('--am_m', type=float, default=0.05)
+    parser.add_argument('--am_m', type=float, default=0.1)
     
     parser.add_argument('--label_smoothing', type=float, default=0.1)
     parser.add_argument('--batch_size', type=int, default=128)
-    parser.add_argument('--max_epochs', type=int, default=150)
+    parser.add_argument('--max_epochs', type=int, default=200)
     parser.add_argument('--optimizer', default='adamw')
     parser.add_argument('--lr', type=float, default=4e-3)
-    parser.add_argument('--weight_decay', type=float, default=1e-3)
+    parser.add_argument('--weight_decay', type=float, default=1e-2)
     parser.add_argument('--scheduler', default='warmup_cosine')
     parser.add_argument('--warmup_epoch', default=2, type=int)
     parser.add_argument('--run_test', action='store_true')

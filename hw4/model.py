@@ -1,7 +1,6 @@
-from torch import dropout, nn
+from torch import nn
 import torch
 from torch.nn import functional as F
-# from conformer.encoder import ConformerEncoder
 from conformer_torchautdio import Conformer
 
 
