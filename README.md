@@ -8,7 +8,7 @@ https://speech.ee.ntu.edu.tw/~hylee/ml/2022-spring.php
 
 ### hw5
 
-* public: 35.36 (boss)
+* public: 36.89 (boss)
 * private: ?
 
 ### hw4

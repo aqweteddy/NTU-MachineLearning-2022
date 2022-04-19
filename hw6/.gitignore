@@ -1,0 +1,10 @@
+__pycache__/
+.cache/
+.*/
+*.zip
+tmp-runs/
+training-runs/
+*.tgz
+faces/
+logs/
+checkpoints/
