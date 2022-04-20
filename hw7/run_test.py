@@ -3,18 +3,23 @@ from os import path, environ
 from argparse import ArgumentParser
 from dataset import QADataset
 from tqdm import tqdm
-from transformers import BertTokenizerFast
+from transformers import BertTokenizerFast, AutoTokenizer
 from trainer import QATrainer
 import pandas as pd
 from transformers import QuestionAnsweringPipeline
 
-
+from typing import List
+from opencc import OpenCC
 environ["CUDA_VISIBLE_DEVICES"] = "0"
+
+
+# def to_cn(text: List[str]):
+
 
 
 def predict_qa_by_pipeline(args):
     model = QATrainer.load_from_checkpoint(args.qa_ckpt).to(args.device)
-    tokenizer = BertTokenizerFast.from_pretrained(model.hparams['pretrained'])
+    tokenizer = AutoTokenizer.from_pretrained(model.hparams['pretrained'])
     model.eval()
     data = json.load(open(args.file))
     context = data['paragraphs']
@@ -25,12 +30,12 @@ def predict_qa_by_pipeline(args):
     pipe = QuestionAnsweringPipeline(model.model,
                                      tokenizer,
                                      device=0,
-                                     batch_size=32)
+                                     batch_size=64)
     result = pipe(
         question=question,
         context=text,
         max_seq_len=512,
-        max_answer_len=20,
+        max_answer_len=30,
     )
     dct = {idx: ans['answer'] for idx, ans in zip(ids, result)}
     return dct
@@ -58,7 +63,13 @@ if __name__ == '__main__':
                         type=str,
                         help='cpu or cuda',
                         default='cuda')
+    parser.add_argument('--gpuid',
+                        type=int,
+                        help='cpu or cuda',
+                        default=1)
+    parser.add_argument('--cn', action='store_true', default=False)
     args = parser.parse_args()
+    environ['CUDA_VISIBLE_DEVICES'] = f'{args.gpuid}'
 
     result = predict_qa_by_pipeline(args)
 
@@ -66,5 +77,5 @@ if __name__ == '__main__':
         'ID': list(result.keys()),
         'Answer': list(result.values())
     })
-    df.set_index('id', inplace=True)
+    df.set_index('ID', inplace=True)
     df.to_csv(args.output)

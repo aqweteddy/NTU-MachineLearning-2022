@@ -1,8 +1,7 @@
-from os import path
 import json
 from torch.utils import data
-from transformers import BertTokenizerFast
-import torch
+from transformers import BertTokenizerFast, AutoTokenizer
+import opencc
 
 
 class BaseDataset(data.Dataset):
@@ -11,12 +10,19 @@ class BaseDataset(data.Dataset):
                  file: str,
                  pretrained: str,
                  maxlen: int,
-                 mode: str = 'train') -> None:
+                 mode: str = 'train',
+                 to_cn: bool = False) -> None:
         super().__init__()
         data = self.load_json(file)
+        converter = opencc.OpenCC('t2s.json')
         self.questions = data['questions']
         self.context = data['paragraphs']
-        self.tokenizer = BertTokenizerFast.from_pretrained(pretrained)
+        if to_cn:
+            for q in self.questions:
+                q['question_text'] = converter.convert(q['question_text'])
+                q['answer_text'] = converter.convert(q['answer_text'])
+            self.context = [converter.convert(q) for q in self.context]
+        self.tokenizer = AutoTokenizer.from_pretrained(pretrained)
         self.maxlen = maxlen
         self.mode = mode
 
@@ -69,8 +75,9 @@ class QADataset(BaseDataset):
     def __getitem__(self, index):
         question = self.questions[index]
         context = self.context[question['paragraph_id']]
+        print(question)
         start = question['answer_start']
-        end = question['answer_end']
+        end = question['answer_end'] + 1 # [, )
 
         inputs = self.tokenize(
             question['question_text'],
@@ -117,7 +124,7 @@ if __name__ == '__main__':
     #                                     'ckiplab/bert-base-chinese',
     #                                     maxlen=128,
     #                                     batch_size=2)
-    dl = QADataset.dataloader('data/hw7_train.json', 'ckiplab/bert-base-chinese', 512, 'train', 8)
+    dl = QADataset.dataloader('data/hw7_train.json', 'ckiplab/bert-base-chinese', 512, 'train', 8, to_cn=True)
     for d in tqdm(dl):
         # input_ids, _, _, start, end = d
         pass

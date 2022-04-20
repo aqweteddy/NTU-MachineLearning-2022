@@ -15,6 +15,7 @@ parser.add_argument('--val_data', type=str, default='data/hw7_dev.json')
 parser.add_argument('--exp_name', type=str, default='QA')
 parser.add_argument('--batch_size', type=int, default=32)
 parser.add_argument('--maxlen', type=int, default=512)
+parser.add_argument('--to_cn', action='store_true', default=False)
 parser = QATrainer.add_model_specific_args(parser)
 parser = Trainer.add_argparse_args(parser)
 args = parser.parse_args()
@@ -23,11 +24,11 @@ os.environ['CUDA_VISIBLE_DEVICES'] = args.gpuid
 
 train_loader = QADataset.dataloader(args.train_data,
                                     args.pretrained, args.maxlen,
-                                     'train', args.batch_size)
+                                     'train', args.batch_size, to_cn=args.to_cn)
 val_loader = QADataset.dataloader(args.val_data, args.pretrained,
-                                    args.maxlen,  'valid', args.batch_size)
-args.warmup_steps = int(len(train_loader) * args.warmup_epochs)
-args.num_train_steps = len(train_loader) * args.max_epochs
+                                    args.maxlen,  'valid', args.batch_size, to_cn=args.to_cn)
+args.warmup_steps = int(len(train_loader) * args.warmup_epochs / args.accumulate_grad_batches)
+args.num_train_steps = int(len(train_loader) * args.max_epochs  / args.accumulate_grad_batches)
 model = QATrainer(args)
 es = EarlyStopping(monitor='val/EM', patience=5, mode='max')
 mc = ModelCheckpoint(monitor='val/EM', save_last=False, save_top_k=2, mode='max')

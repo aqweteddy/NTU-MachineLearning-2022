@@ -1,6 +1,6 @@
 import pytorch_lightning as pl
 import torch
-from transformers import get_cosine_schedule_with_warmup, BertForQuestionAnswering, get_constant_schedule_with_warmup
+from transformers import get_cosine_schedule_with_warmup, BertForQuestionAnswering, get_constant_schedule_with_warmup, AutoModelForQuestionAnswering
 
 
 class BaseTrainer(pl.LightningModule):
@@ -52,7 +52,7 @@ class QATrainer(BaseTrainer):
 
     def __init__(self, args) -> None:
         super().__init__(args)
-        self.model = BertForQuestionAnswering.from_pretrained(
+        self.model = AutoModelForQuestionAnswering.from_pretrained(
             self.hparams.pretrained)
         self.best_em = 0.
 
