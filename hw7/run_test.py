@@ -10,12 +10,13 @@ from transformers import QuestionAnsweringPipeline
 
 from typing import List
 from opencc import OpenCC
+
 environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
-# def to_cn(text: List[str]):
-
-
+def to_cn(text: List[str]):
+    converter = OpenCC('t2s.json')
+    return converter.convert([t for t in text])
 
 def predict_qa_by_pipeline(args):
     model = QATrainer.load_from_checkpoint(args.qa_ckpt).to(args.device)
@@ -27,6 +28,10 @@ def predict_qa_by_pipeline(args):
     ids = [qid['id'] for qid in questions]
     text = [context[qid['paragraph_id']] for qid in questions]
     question = [qid['question_text'] for qid in questions]
+
+    if args.cn:
+        text = to_cn(text)
+        question = to_cn(question)
     pipe = QuestionAnsweringPipeline(model.model,
                                      tokenizer,
                                      device=0,
@@ -37,7 +42,12 @@ def predict_qa_by_pipeline(args):
         max_seq_len=512,
         max_answer_len=30,
     )
-    dct = {idx: ans['answer'] for idx, ans in zip(ids, result)}
+    if args.cn:
+        converter = OpenCC('s2t.json')
+        dct = {idx: converter.convert(ans['answer']) for idx, ans in zip(ids, result)}
+    else:
+        dct = {idx: ans['answer'] for idx, ans in zip(ids, result)}
+
     return dct
 
 

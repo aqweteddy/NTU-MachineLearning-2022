@@ -12,7 +12,7 @@ class BaseTrainer(pl.LightningModule):
     def configure_optimizers(self):
         opt = torch.optim.AdamW(self.model.parameters(),
                                 self.hparams.lr,
-                                weight_decay=1e-3)
+                                weight_decay=1e-5)
         if self.hparams.scheduler in [None, 'none']:
             return opt
         elif self.hparams.scheduler == 'cosine_warmup':

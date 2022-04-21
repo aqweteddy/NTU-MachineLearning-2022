@@ -2,7 +2,7 @@ import json
 from torch.utils import data
 from transformers import BertTokenizerFast, AutoTokenizer
 import opencc
-
+import torch
 
 class BaseDataset(data.Dataset):
 
@@ -14,10 +14,10 @@ class BaseDataset(data.Dataset):
                  to_cn: bool = False) -> None:
         super().__init__()
         data = self.load_json(file)
-        converter = opencc.OpenCC('t2s.json')
         self.questions = data['questions']
         self.context = data['paragraphs']
         if to_cn:
+            converter = opencc.OpenCC('t2s.json')
             for q in self.questions:
                 q['question_text'] = converter.convert(q['question_text'])
                 q['answer_text'] = converter.convert(q['answer_text'])
@@ -26,7 +26,7 @@ class BaseDataset(data.Dataset):
         self.maxlen = maxlen
         self.mode = mode
 
-        print(f'split: {self.mode}, num_samples: {len(self.questions)}')
+        print(f'split: {self.mode}, num_samples: {len(self.questions)}, cn:{to_cn}')
 
     @staticmethod
     def load_json(path: str):
@@ -45,6 +45,12 @@ class BaseDataset(data.Dataset):
                               return_tensors='pt',
                               **kwargs)
 
+    def mask_sentence(self, x:torch.Tensor, percent: float):
+        idx = torch.arange(1, x.shape[0] - 2)
+        idx = idx[torch.randperm(idx.shape[0])]
+        k = int(idx.shape[0] * percent)
+        return x[idx[k+1:]]
+    
     @classmethod
     def dataloader(cls,
                    file: str,
@@ -75,7 +81,6 @@ class QADataset(BaseDataset):
     def __getitem__(self, index):
         question = self.questions[index]
         context = self.context[question['paragraph_id']]
-        print(question)
         start = question['answer_start']
         end = question['answer_end'] + 1 # [, )
 
