@@ -11,7 +11,8 @@ class BaseDataset(data.Dataset):
                  pretrained: str,
                  maxlen: int,
                  mode: str = 'train',
-                 to_cn: bool = False) -> None:
+                 to_cn: bool = False,
+                 mask_prob: float=0) -> None:
         super().__init__()
         data = self.load_json(file)
         self.questions = data['questions']
@@ -25,6 +26,7 @@ class BaseDataset(data.Dataset):
         self.tokenizer = AutoTokenizer.from_pretrained(pretrained)
         self.maxlen = maxlen
         self.mode = mode
+        self.mask_prob = mask_prob
 
         print(f'split: {self.mode}, num_samples: {len(self.questions)}, cn:{to_cn}')
 
@@ -45,11 +47,13 @@ class BaseDataset(data.Dataset):
                               return_tensors='pt',
                               **kwargs)
 
-    def mask_sentence(self, x:torch.Tensor, percent: float):
-        idx = torch.arange(1, x.shape[0] - 2)
-        idx = idx[torch.randperm(idx.shape[0])]
-        k = int(idx.shape[0] * percent)
-        return x[idx[k+1:]]
+    def mask_sentence(self, x:torch.Tensor):
+        mask = torch.rand(x.size()) < self.mask_prob
+        spe_mask = (x == 101) | (x == 102) | (x == 0)
+        bak_x = x.clone()
+        x[mask] = 103 # mask
+        x[spe_mask] = bak_x[spe_mask]
+        return x
     
     @classmethod
     def dataloader(cls,
@@ -75,8 +79,9 @@ class QADataset(BaseDataset):
                  pretrained: str,
                  maxlen: int,
                  mode: str = 'train',
+                 mask_prob: float=0.15,
                  **kwargs) -> None:
-        super().__init__(file, pretrained, maxlen, mode, **kwargs)
+        super().__init__(file, pretrained, maxlen, mode, mask_prob=mask_prob, **kwargs)
 
     def __getitem__(self, index):
         question = self.questions[index]
@@ -118,7 +123,10 @@ class QADataset(BaseDataset):
                 end_pos -= 1
             end_pos += 1
 
-        return inputs.input_ids[0], inputs.token_type_ids[
+        x = inputs.input_ids[0]
+        if self.mask_prob > 0:
+            x = self.mask_sentence(x)
+        return x, inputs.token_type_ids[
             0], inputs.attention_mask[0], start_pos, end_pos
 
 
@@ -129,8 +137,9 @@ if __name__ == '__main__':
     #                                     'ckiplab/bert-base-chinese',
     #                                     maxlen=128,
     #                                     batch_size=2)
-    dl = QADataset.dataloader('data/hw7_train.json', 'ckiplab/bert-base-chinese', 512, 'train', 8, to_cn=True)
+    dl = QADataset.dataloader('data/hw7_train.json', 'ckiplab/bert-base-chinese', 512, 'train', 8, to_cn=True, mask_prob=0.15)
     for d in tqdm(dl):
-        # input_ids, _, _, start, end = d
+        input_ids, _, _, start, end = d
+        print(input_ids)
         pass
         # print(ds.tokenizer.decode(input_ids[start:end+1]))
