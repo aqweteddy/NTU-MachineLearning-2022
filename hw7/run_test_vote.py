@@ -7,29 +7,26 @@ from transformers import BertTokenizerFast, AutoTokenizer
 from trainer import QATrainer
 import pandas as pd
 from transformers import QuestionAnsweringPipeline
-
+from collections import defaultdict
 from typing import List
 from opencc import OpenCC
-
-environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 
 def to_cn(text: List[str]):
     converter = OpenCC('t2s.json')
     return [converter.convert(t) for t in text]
 
-def predict_qa_by_pipeline(args):
-    model = QATrainer.load_from_checkpoint(args.qa_ckpt).to(args.device)
+def predict_qa_by_pipeline(ckpt, args):
+    model = QATrainer.load_from_checkpoint(ckpt).to(args.device)
     tokenizer = AutoTokenizer.from_pretrained(model.hparams['pretrained'])
     model.eval()
     data = json.load(open(args.file))
     context = data['paragraphs']
     questions = data['questions']
-    ids = [qid['id'] for qid in questions]
     text = [context[qid['paragraph_id']] for qid in questions]
     question = [qid['question_text'] for qid in questions]
 
-    if args.cn:
+    if model.hparams['to_cn']:
         text = to_cn(text)
         question = to_cn(question)
     pipe = QuestionAnsweringPipeline(model.model,
@@ -39,17 +36,42 @@ def predict_qa_by_pipeline(args):
     result = pipe(
         question=question,
         context=text,
-        max_seq_len=512,
+        max_seq_len=450,
         max_answer_len=30,
+        topk=5
     )
-    if args.cn:
-        converter = OpenCC('s2t.json')
-        dct = {idx: converter.convert(ans['answer']) for idx, ans in zip(ids, result)}
-    else:
-        dct = {idx: ans['answer'] for idx, ans in zip(ids, result)}
+    converter = OpenCC('s2t.json')
+    if model.hparams['to_cn']:
+        for rs in result:
+            for r in rs:
+                r['answer'] = converter.convert(r['answer'])
+    return result
 
-    return dct
+def ensem(inputs: List[List[dict]]):
+    result = []
+    for q_model in zip(*inputs): # for each question
+        dct = defaultdict(lambda : 0)
+        for model in q_model: # for each model
+            for r in model: # for each answer
+                dct[r['answer']] += r['score']
+        result.append(max(dct.items(), key=lambda x: x[1])[0])
+        
+    return result
 
+
+def complete_brackets(text: List[str]):
+    left_brackets = "\"(【「《"
+    right_brackets = "\")】」》"
+    for t in text:
+        for i, b in enumerate(left_brackets):
+            if b in t and right_brackets[i] not in t:
+                t += right_brackets[i]
+                break
+        for i, b in enumerate(right_brackets):
+            if b in t and left_brackets[i] not in t:
+                t = left_brackets[i] + t
+                break
+    return text
 
 
 if __name__ == '__main__':
@@ -57,9 +79,10 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument(
         '--qa_ckpt',
-        type=str,
+        nargs='+',
         help='QA task ckpt',
-        default='adl_hw2/1znn1nmy/checkpoints/epoch=1-step=2713.ckpt',
+        default=['checkpoints/macbert_cn_ft-mrc.ckpt'],
+        # default=['checkpoints/macbert_cn_ft-mrc.ckpt', 'checkpoints/PERT_cn.ckpt'],
     )
     parser.add_argument('--file',
                         type=str,
@@ -77,15 +100,18 @@ if __name__ == '__main__':
                         type=int,
                         help='cpu or cuda',
                         default=1)
-    parser.add_argument('--cn', action='store_true', default=False)
     args = parser.parse_args()
+    print(args.qa_ckpt)
     environ['CUDA_VISIBLE_DEVICES'] = f'{args.gpuid}'
-
-    result = predict_qa_by_pipeline(args)
-
+    result = []
+    for ckpt in tqdm(args.qa_ckpt):
+        result.append(predict_qa_by_pipeline(ckpt, args))
+    json.dump(result, open('tmp.json', 'w'), ensure_ascii=False, indent=2)
+    result = ensem(result)
+    result = complete_brackets(result)
     df = pd.DataFrame({
-        'ID': list(result.keys()),
-        'Answer': list(result.values())
+        'ID': list(range(0, len(result))),
+        'Answer': result,
     })
     df.set_index('ID', inplace=True)
     df.to_csv(args.output)

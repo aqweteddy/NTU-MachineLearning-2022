@@ -7,7 +7,7 @@ from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, Learning
 from pytorch_lightning.loggers import WandbLogger
 
 
-seed_everything(8787)
+seed_everything(8877)
 parser = ArgumentParser()
 parser.add_argument('--gpuid', type=str, default='0')
 parser.add_argument('--train_data', type=str, default='data/hw7_train.json')
@@ -31,7 +31,7 @@ args.warmup_steps = int(len(train_loader) * args.warmup_epochs / args.accumulate
 args.num_train_steps = int(len(train_loader) * args.max_epochs  / args.accumulate_grad_batches)
 model = QATrainer(args)
 es = EarlyStopping(monitor='val/EM', patience=5, mode='max')
-mc = ModelCheckpoint(monitor='val/EM', save_last=False, save_top_k=2, mode='max')
+mc = ModelCheckpoint(monitor='val/EM', save_last=False, save_top_k=1, mode='max')
 
 
 lrm = LearningRateMonitor('step')

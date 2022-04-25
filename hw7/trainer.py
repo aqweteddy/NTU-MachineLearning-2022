@@ -12,7 +12,7 @@ class BaseTrainer(pl.LightningModule):
     def configure_optimizers(self):
         opt = torch.optim.AdamW(self.model.parameters(),
                                 self.hparams.lr,
-                                weight_decay=1e-5)
+                                weight_decay=self.hparams.weight_decay)
         if self.hparams.scheduler in [None, 'none']:
             return opt
         elif self.hparams.scheduler == 'cosine_warmup':
@@ -42,8 +42,9 @@ class BaseTrainer(pl.LightningModule):
                             default='ckiplab/bert-base-chinese',
                             type=str)
         parser.add_argument('--scheduler', default=None, type=str)
-        parser.add_argument('--lr', default=2e-5, type=float)
+        parser.add_argument('--lr', default=3e-5, type=float)
         parser.add_argument('--warmup_epochs', default=1.5, type=float)
+        parser.add_argument('--weight_decay', default=1e-2, type=float)
         return parent_parser
 
 
