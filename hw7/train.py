@@ -25,7 +25,7 @@ os.environ['CUDA_VISIBLE_DEVICES'] = args.gpuid
 
 train_loader = QADataset.dataloader(args.train_data,
                                     args.pretrained, args.maxlen,
-                                     'train', args.batch_size, to_cn=args.to_cn)
+                                     'train', args.batch_size, to_cn=args.to_cn, mask_prob=args.mask_prob)
 val_loader = QADataset.dataloader(args.val_data, args.pretrained,
                                     args.maxlen,  'valid', args.batch_size, to_cn=args.to_cn)
 args.warmup_steps = int(len(train_loader) * args.warmup_epochs / args.accumulate_grad_batches)

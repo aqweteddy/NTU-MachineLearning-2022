@@ -8,3 +8,4 @@ training-runs/
 faces/
 logs/
 checkpoints/
+*.csv

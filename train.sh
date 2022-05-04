@@ -1,1 +1,0 @@
-python train.py --gpuid 1 --gpus 1 --exp_name mac_bert_base --batch_size 16 --accumulate_grad_batches 4 --pretrained hfl/chinese-macbert-base --lr 3e-5 --scheduler constant_warmup --warmup_epochs 1 --min_epochs 1 --max_epochs 10 --reload_dataloaders_every_n_epochs 1 --precision 16

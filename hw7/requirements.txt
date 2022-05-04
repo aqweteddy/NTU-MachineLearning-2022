@@ -1,0 +1,13 @@
+
+pytorch-lightning==1.6.1
+OpenCC==1.1.3
+pandas==1.4.2
+scikit-learn==1.0.2
+scipy==1.8.0
+tabulate==0.8.9
+torch==1.11.0
+torchaudio==0.7.0a0+ac17b64
+torchmetrics==0.8.0
+torchvision==0.12.0
+tqdm==4.63.1
+transformers==4.18.0

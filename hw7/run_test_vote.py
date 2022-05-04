@@ -26,9 +26,9 @@ def predict_qa_by_pipeline(ckpt, args):
     text = [context[qid['paragraph_id']] for qid in questions]
     question = [qid['question_text'] for qid in questions]
 
-    if model.hparams['to_cn']:
-        text = to_cn(text)
-        question = to_cn(question)
+    # if model.hparams['to_cn']:
+    #     text = to_cn(text)
+    #     question = to_cn(question)
     pipe = QuestionAnsweringPipeline(model.model,
                                      tokenizer,
                                      device=0,
@@ -41,19 +41,20 @@ def predict_qa_by_pipeline(ckpt, args):
         topk=5
     )
     converter = OpenCC('s2t.json')
-    if model.hparams['to_cn']:
-        for rs in result:
-            for r in rs:
-                r['answer'] = converter.convert(r['answer'])
+    # if model.hparams['to_cn']:
+    #     for rs in result:
+    #         for r in rs:
+    #             r['answer'] = converter.convert(r['answer'])
     return result
 
 def ensem(inputs: List[List[dict]]):
     result = []
     for q_model in zip(*inputs): # for each question
         dct = defaultdict(lambda : 0)
-        for model in q_model: # for each model
-            for r in model: # for each answer
-                dct[r['answer']] += r['score']
+        for model_answer in q_model: # for each model
+            for i, r in enumerate(model_answer): # for each answer
+                # dct[r['answer']] += r['score']
+                dct[r['answer']] += 1 / (i + 1)
         result.append(max(dct.items(), key=lambda x: x[1])[0])
         
     return result

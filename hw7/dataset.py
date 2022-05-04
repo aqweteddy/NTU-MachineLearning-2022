@@ -3,6 +3,7 @@ from torch.utils import data
 from transformers import BertTokenizerFast, AutoTokenizer
 import opencc
 import torch
+from nlpaug.augmenter.char.random import RandomCharAug
 
 class BaseDataset(data.Dataset):
 
@@ -62,13 +63,15 @@ class BaseDataset(data.Dataset):
                    maxlen: int,
                    mode: str = 'train',
                    batch_size=32,
+                   mask_prob=0,
                    **kwargs) -> data.DataLoader:
-        ds = cls(file, pretrained, maxlen, mode, **kwargs)
+        ds = cls(file, pretrained, maxlen, mode, mask_prob=mask_prob, **kwargs)
         dl = data.DataLoader(ds,
                              batch_size=batch_size,
                              num_workers=10,
                              drop_last=mode != 'test',
-                             shuffle=mode == 'train')
+                             shuffle=mode == 'train',
+                             )
         return dl
 
 
@@ -79,16 +82,21 @@ class QADataset(BaseDataset):
                  pretrained: str,
                  maxlen: int,
                  mode: str = 'train',
-                 mask_prob: float=0.15,
+                 mask_prob: float=0.,
+                 random_swap: bool=False,
                  **kwargs) -> None:
         super().__init__(file, pretrained, maxlen, mode, mask_prob=mask_prob, **kwargs)
+        if random_swap:
+            self.aug = RandomCharAug('swap', swap_mode='middle')
+        self.random_swap = random_swap
 
     def __getitem__(self, index):
         question = self.questions[index]
         context = self.context[question['paragraph_id']]
         start = question['answer_start']
         end = question['answer_end'] + 1 # [, )
-
+        if self.random_swap and self.mode == 'train':
+            context = self.aug.augment(context)
         inputs = self.tokenize(
             question['question_text'],
             context,
@@ -124,7 +132,7 @@ class QADataset(BaseDataset):
             end_pos += 1
 
         x = inputs.input_ids[0]
-        if self.mask_prob > 0:
+        if self.mask_prob > 0 and self.mode == 'train':
             x = self.mask_sentence(x)
         return x, inputs.token_type_ids[
             0], inputs.attention_mask[0], start_pos, end_pos
