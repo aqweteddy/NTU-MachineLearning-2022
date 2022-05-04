@@ -6,10 +6,18 @@ https://speech.ee.ntu.edu.tw/~hylee/ml/2022-spring.php
 
 ## code
 
+### hw7
+
+* 
+
+### hw6
+
+* AFD: 0.666
+* FID: 2470.32
 ### hw5
 
 * public: 36.89 (boss)
-* private: ?
+* private: 36.34 (boss)
 
 ### hw4
 
