@@ -8,13 +8,15 @@ https://speech.ee.ntu.edu.tw/~hylee/ml/2022-spring.php
 
 ### hw13
 
+* public acc: 0.85756 (boss)
+
 ### hw12
 
 * rewards: 273 (boss)
 
 ### hw9
 
-* None 
+* only report
 
 ### hw7
 
